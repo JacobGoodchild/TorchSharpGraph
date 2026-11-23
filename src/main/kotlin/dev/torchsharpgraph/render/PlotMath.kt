@@ -73,7 +73,11 @@ object Ticks {
         val raw = range.span / max(1, maxTicks)
         if (!(raw > 0) || !raw.isFinite()) return listOf(range.min) to 1.0
         val mag = 10.0.pow(floor(log10(raw)))
-        val step = listOf(1.0, 2.0, 5.0, 10.0).map { it * mag }.first { it >= raw * 0.999 }
+        // The 1-2-5 step whose number of ticks is closest to what fits, but always at least two ticks.
+        fun count(step: Double) = floor(range.max / step + 1e-9) - ceil(range.min / step - 1e-9) + 1
+        val candidates = listOf(0.5, 1.0, 2.0, 5.0, 10.0, 20.0).map { it * mag }
+        val step = candidates.filter { count(it) >= 2 }.minByOrNull { abs(count(it) - maxTicks) + (if (count(it) > maxTicks + 2) 100 else 0) }
+            ?: candidates.first { it >= raw * 0.999 }
         val first = ceil(range.min / step - 1e-9) * step
         val ticks = ArrayList<Double>()
         var v = first
