@@ -171,6 +171,7 @@ object PlotRenderer {
         if (heat != null) drawHeatmap(g, heat, xs, ys, theme)
         if (isImage) drawImage(g, plot.image!!, xs, ys)
         val smooth = view.smoothing.takeIf { plot.kind == PlotKind.LOSS && it > 0.0 }
+        val unit = if (smooth != null) stepUnit(plot) else 1.0
         plot.series.forEachIndexed { i, s ->
             val color = seriesColor(plot, theme, i)
             if (smooth != null && s.style == SeriesStyle.LINE) {
@@ -179,7 +180,7 @@ object PlotRenderer {
                 g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f)
                 drawSeries(g, s, xs, ys, color, rect)
                 g.composite = old
-                drawSeries(g, smoothed(s, smooth), xs, ys, color, rect)
+                drawSeries(g, smoothed(s, smooth, unit), xs, ys, color, rect)
             } else drawSeries(g, s, xs, ys, color, rect)
         }
         g.clip = oldClip
@@ -250,7 +251,7 @@ object PlotRenderer {
     }
 
     private fun yTicks(yr: Range, logY: Boolean, heightPx: Double, fontH: Int): List<Pair<Double, String>> {
-        val count = max(3, (heightPx / max(40.0, fontH * 2.5)).toInt())
+        val count = max(3, (heightPx / max(50.0, fontH * 3.0)).toInt())
         if (logY) return Ticks.log(yr, count).map { it to Ticks.logLabel(it) }
         val (values, step) = Ticks.linear(yr, count)
         return values.map { it to Ticks.label(it, step) }
@@ -403,28 +404,44 @@ object PlotRenderer {
         g.drawImage(img, java.awt.geom.AffineTransform(1 / sx, 0.0, 0.0, 1 / sy, rect.x, rect.y), null)
     }
 
-    private val smoothCache: MutableMap<Series, Triple<Int, Double, Series>> = Collections.synchronizedMap(WeakHashMap())
+    private val smoothCache: MutableMap<Series, Triple<Pair<Int, Double>, Double, Series>> = Collections.synchronizedMap(WeakHashMap())
 
     /**
-     * Exponential moving average with TensorBoard's start-up correction (so the curve doesn't start at zero):
-     * s_t = w * s_(t-1) + (1 - w) * y_t, shown as s_t / (1 - w^t).
+     * Exponential moving average measured in steps, with TensorBoard's start-up correction (no dip towards zero).
+     * Each point's weight is [weight] to the power of the step gap / [unit], so a curve logged every 20 steps is
+     * smoothed over the same span of steps as one logged every step.
      */
-    fun smoothed(s: Series, weight: Double): Series {
-        smoothCache[s]?.let { (n, w, out) -> if (n == s.size && w == weight) return out }
+    fun smoothed(s: Series, weight: Double, unit: Double = 1.0): Series {
+        smoothCache[s]?.let { (key, u, out) -> if (key == s.size to weight && u == unit) return out }
         val ys = DoubleArray(s.size)
-        var last = 0.0
-        var count = 0
+        var value = 0.0
+        var norm = 0.0
+        var lastX = Double.NaN
         for (i in 0 until s.size) {
-            val y = s.ys[i]
+            val y = s.ys[i]; val x = s.xs[i]
             if (!y.isFinite()) { ys[i] = Double.NaN; continue }
-            last = weight * last + (1 - weight) * y
-            count++
-            ys[i] = last / (1 - Math.pow(weight, count.toDouble()))
+            val gap = if (lastX.isFinite() && x.isFinite() && unit > 0) ((x - lastX) / unit).coerceIn(0.0, 1e6) else 1.0
+            val w = Math.pow(weight, gap)
+            value = w * value + (1 - w) * y
+            norm = w * norm + (1 - w)
+            ys[i] = if (norm > 0) value / norm else y
+            lastX = x
         }
         val out = Series(s.name, s.style)
         out.replace(s.xs.copyOf(s.size), ys)
-        smoothCache[s] = Triple(s.size, weight, out)
+        smoothCache[s] = Triple(s.size to weight, unit, out)
         return out
+    }
+
+    /** The typical step between points of the plot's densest curve (the unit smoothing is measured in). */
+    private fun stepUnit(plot: PlotData): Double {
+        val gaps = plot.series.mapNotNull { s ->
+            if (s.size < 2) null else {
+                val d = DoubleArray(minOf(s.size - 1, 2000)) { s.xs[it + 1] - s.xs[it] }.filter { it.isFinite() && it > 0 }.sorted()
+                d.getOrNull(d.size / 2)
+            }
+        }
+        return gaps.minOrNull() ?: 1.0
     }
 
     /** The index range worth drawing: for sorted series only the visible part (plus one point each side). */

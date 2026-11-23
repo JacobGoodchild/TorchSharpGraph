@@ -123,6 +123,11 @@ class RenderTest {
         val smoothErr = (100 until n).sumOf { kotlin.math.abs(smooth.ys[it] - (exp(-it / 80.0) + 0.5)) }
         assertTrue(smoothErr < rawErr / 2.5, "smoothed $smoothErr vs raw $rawErr")
         assertEquals(ys2[0], smooth.ys[0], 1e-9) // the start-up correction: no dip towards zero
+        // A curve logged every 20 steps is smoothed over the same span of steps, so it barely lags.
+        val sparse = dev.torchsharpgraph.model.Series("check", dev.torchsharpgraph.model.SeriesStyle.LINE)
+        sparse.replace(DoubleArray(20) { it * 20.0 }, DoubleArray(20) { 100.0 - it * 5.0 })
+        val sm = PlotRenderer.smoothed(sparse, 0.9, unit = 1.0)
+        assertTrue(kotlin.math.abs(sm.ys[19] - sparse.ys[19]) < 1.0, "sparse curve lag ${sm.ys[19] - sparse.ys[19]}")
         val view = ViewState().apply { smoothing = 0.9 }
         save(render(s, "noisy", PlotTheme.dark(), view = view).first, "loss-smoothed-dark.png")
     }

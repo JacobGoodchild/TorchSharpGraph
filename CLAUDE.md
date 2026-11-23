@@ -83,5 +83,10 @@ Not checked (needs real Rider, which needs a login): running from Rider's Run bu
 bin/Debug — routing is by folder prefix so it should match), Rider's own tool window stripe placement, Rider's
 file sync timing after `dotnet add package`.
 
+Added after the checklist (22:00): loss smoothing (right-click > Smoothing; step-aware EMA with start-up correction,
+raw values faint behind; tested + IDE screenshot), Copy as Image (clipboard PNG checked with xclip), very large
+scatters drawn through a pixel buffer (1M points: 240 ms -> 25 ms per repaint), reconnect test (viewer restarts
+mid-run: full state resent, program calls stay fast), NuGet package icon, fewer y ticks on tall plots.
+
 Ideas if time is left: rescan when a project is reloaded in Rider; "copy image" action; per-plot y-range lock;
 smoothing slider for noisy loss (TensorBoard-style).
