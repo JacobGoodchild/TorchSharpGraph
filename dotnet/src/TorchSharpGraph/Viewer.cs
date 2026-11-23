@@ -160,6 +160,26 @@ internal sealed class ViewerConnection : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// False once the viewer has closed its end. The viewer never sends anything after its welcome, so a readable
+    /// socket with nothing to read means the connection was closed (for example Rider was restarted).
+    /// </summary>
+    public bool IsAlive
+    {
+        get
+        {
+            try
+            {
+                var socket = _client.Client;
+                return !(socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+    }
+
     /// <summary>Sends the messages. Returns false if the viewer went away.</summary>
     public bool Send(IReadOnlyList<byte[]> messages)
     {

@@ -149,6 +149,14 @@ internal sealed class Hub
         {
             try
             {
+                if (_connection != null && !_connection.IsAlive)
+                {
+                    // The viewer closed (Rider restarted): connect again soon and send everything again.
+                    _connection.Dispose();
+                    _connection = null;
+                    MarkEverythingUnsent();
+                    _nextConnectAttempt = DateTime.UtcNow + TimeSpan.FromMilliseconds(200);
+                }
                 if (_connection == null && TestSink == null) TryConnect();
                 _firstAttemptDone.Set();
                 if (_connection != null || TestSink != null) SendPending();
