@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>TorchSharpGraph</RootNamespace>
+    <AssemblyName>TorchSharpGraph</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <PackageId>TorchSharpGraph</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Jacob Goodchild</Authors>
+    <Description>Live plots for C# machine learning: scatter, line, function, loss, heatmap and image plots that show in Rider while your program runs, or are saved as PNG files.</Description>
+    <PackageTags>torchsharp;plot;chart;machine-learning;rider</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/JacobGoodchild/TorchSharpGraph</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JacobGoodchild/TorchSharpGraph</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Managed TorchSharp only: the program chooses its own backend (TorchSharp-cpu, -cuda-linux, ...). -->
+    <PackageReference Include="TorchSharp" Version="0.107.0" />
+    <!-- Draws the PNG files saved when no viewer is listening. -->
+    <PackageReference Include="ScottPlot" Version="5.1.58" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="TorchSharpGraph.Tests" />
+  </ItemGroup>
+
+</Project>

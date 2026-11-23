@@ -1,0 +1,11 @@
+.gradle/
+build/
+out/
+.idea/
+*.iml
+bin/
+obj/
+.intellijPlatform/
+.kotlin/
+plots/
+TestResults/
