@@ -232,3 +232,21 @@ class EndToEndTest {
         assertFalse(Files.exists(work.resolve("plots")), "no PNG files when the viewer got everything")
     }
 }
+
+class TicksTest {
+    @Test
+    fun labelsShowTheStepExactly() {
+        for ((range, max) in listOf(dev.torchsharpgraph.render.Range(-0.3, 6.1) to 27, dev.torchsharpgraph.render.Range(0.0, 1e-3) to 5,
+                dev.torchsharpgraph.render.Range(-1.0, 1.0) to 4, dev.torchsharpgraph.render.Range(1000.0, 1003.0) to 6)) {
+            val (ticks, step) = dev.torchsharpgraph.render.Ticks.linear(range, max)
+            val labels = ticks.map { dev.torchsharpgraph.render.Ticks.label(it, step) }
+            assertEquals(labels.size, labels.toSet().size, "labels are distinct: $labels")
+            for ((t, l) in ticks.zip(labels)) assertEquals(t, l.toDouble(), step * 1e-6, "label $l for $t")
+        }
+        assertEquals(listOf(-2.0, -1.0, 0.0), dev.torchsharpgraph.render.Ticks.log(dev.torchsharpgraph.render.Range(-2.0, 0.0), 5))
+        assertEquals("1e-6", dev.torchsharpgraph.render.Ticks.logLabel(-6.0))
+        assertEquals("0.01", dev.torchsharpgraph.render.Ticks.logLabel(-2.0))
+        assertEquals("1.235e7", dev.torchsharpgraph.render.Ticks.value(12345678.0))
+        assertEquals("0.1235", dev.torchsharpgraph.render.Ticks.value(0.123456))
+    }
+}

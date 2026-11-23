@@ -237,7 +237,7 @@ object PlotRenderer {
     }
 
     private fun yTicks(yr: Range, logY: Boolean, heightPx: Double, fontH: Int): List<Pair<Double, String>> {
-        val count = max(3, (heightPx / max(32.0, fontH * 2.2)).toInt())
+        val count = max(3, (heightPx / max(40.0, fontH * 2.5)).toInt())
         if (logY) return Ticks.log(yr, count).map { it to Ticks.logLabel(it) }
         val (values, step) = Ticks.linear(yr, count)
         return values.map { it to Ticks.label(it, step) }

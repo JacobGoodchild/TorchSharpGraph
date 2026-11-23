@@ -73,7 +73,7 @@ object Ticks {
         val raw = range.span / max(1, maxTicks)
         if (!(raw > 0) || !raw.isFinite()) return listOf(range.min) to 1.0
         val mag = 10.0.pow(floor(log10(raw)))
-        val step = listOf(1.0, 2.0, 2.5, 5.0, 10.0).map { it * mag }.first { it >= raw * 0.999 }
+        val step = listOf(1.0, 2.0, 5.0, 10.0).map { it * mag }.first { it >= raw * 0.999 }
         val first = ceil(range.min / step - 1e-9) * step
         val ticks = ArrayList<Double>()
         var v = first
