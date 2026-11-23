@@ -45,7 +45,7 @@ More: [user guide](docs/USER-GUIDE.md).
 
 ## Credits
 
-Written by Jacob Goodchild. MIT licence. PNG files are drawn with [ScottPlot](https://scottplot.net) (MIT); heatmaps
+MIT licence (see [LICENSE](LICENSE)). PNG files are drawn with [ScottPlot](https://scottplot.net) (MIT); heatmaps
 use the viridis colours from matplotlib (CC0). Details: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 TorchSharpGraph is an independent project, not made or endorsed by JetBrains, Microsoft or the .NET Foundation.
