@@ -9,19 +9,14 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.wm.IdeFocusManager
 import dev.torchsharpgraph.model.RunInfo
 import dev.torchsharpgraph.project.GraphsProjectService
-import dev.torchsharpgraph.protocol.JsonException
 import dev.torchsharpgraph.protocol.Message
 import dev.torchsharpgraph.settings.GraphsSettings
-import java.io.BufferedInputStream
-import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.CopyOnWriteArrayList
 
 private val LOG = logger<GraphsServer>()
@@ -95,44 +90,25 @@ class GraphsServer : Disposable {
     }
 
     private fun serve(socket: Socket) {
-        var run: RunInfo? = null
-        var service: GraphsProjectService? = null
         try {
             socket.soTimeout = 5000
-            val input = BufferedInputStream(socket.getInputStream(), 1 shl 16)
-            val helloLine = readLine(input, 64 * 1024) ?: return
-            val hello = Message.parse(helloLine)
-            if (hello.type != "hello" || hello.int("protocol") != 1) return
-            socket.getOutputStream().apply { write("{\"t\":\"welcome\",\"protocol\":1}\n".toByteArray(StandardCharsets.UTF_8)); flush() }
-            socket.soTimeout = 0
-            val project = projectFor(hello.string("dir"), hello.string("exe")) ?: return
-            val s = GraphsProjectService.get(project)
-            service = s
-            val info = RunInfo(
-                hello.string("run") ?: "", hello.string("program")?.take(200) ?: "program", hello.int("pid") ?: 0,
-                hello.string("dir"), System.currentTimeMillis(),
-            )
-            run = info
-            s.runStarted(info)
-            while (!disposed) {
-                val line = readLine(input, MAX_LINE) ?: break
-                if (line.isBlank()) continue
-                val m = try { Message.parse(line) } catch (e: JsonException) { LOG.debug("Graphs: unreadable message", e); continue }
-                if (m.type == "end") { info.endedAt = System.currentTimeMillis(); continue }
-                s.store.apply(m)
+            Session.run(socket.getInputStream(), socket.getOutputStream(), onWelcome = { socket.soTimeout = 0 }) { hello ->
+                val project = projectFor(hello.string("dir"), hello.string("exe")) ?: return@run null
+                val service = GraphsProjectService.get(project)
+                object : Session.Sink {
+                    override fun started(info: RunInfo) = service.runStarted(info)
+                    override fun apply(m: Message) { service.store.apply(m) }
+                    override fun ended(info: RunInfo) = service.runEnded(info)
+                }
             }
         } catch (_: SocketException) {
         } catch (e: IOException) {
             LOG.debug("Graphs: connection closed", e)
-        } catch (e: JsonException) {
-            LOG.debug("Graphs: bad hello", e)
         } catch (e: RuntimeException) {
             LOG.warn("Graphs: dropped a connection", e)
         } finally {
             connections.remove(socket)
             try { socket.close() } catch (_: IOException) {}
-            val r = run
-            if (r != null) service?.runEnded(r)
         }
     }
 
@@ -157,23 +133,9 @@ class GraphsServer : Disposable {
 
     companion object {
         const val MAX_CONNECTIONS = 16
-        /** One message can carry a big tensor, but not more than this. */
-        const val MAX_LINE = 256 * 1024 * 1024
 
         fun get(): GraphsServer = ApplicationManager.getApplication().getService(GraphsServer::class.java)
 
         internal fun normalise(path: String): String = path.replace('\\', '/').trimEnd('/')
-
-        /** Reads one line of UTF-8 (without the newline), or null at the end. Longer lines than [max] end the connection. */
-        internal fun readLine(input: InputStream, max: Int): String? {
-            val out = ByteArrayOutputStream(256)
-            while (true) {
-                val b = input.read()
-                if (b < 0) return if (out.size() == 0) null else out.toString(StandardCharsets.UTF_8)
-                if (b == '\n'.code) return out.toString(StandardCharsets.UTF_8)
-                if (out.size() >= max) throw IOException("Message too long")
-                out.write(b)
-            }
-        }
     }
 }
