@@ -62,19 +62,26 @@ Live plots for C# machine learning inside Rider. Two parts:
 - **Viridis** colours for heatmaps (CC0); points/lines over a heatmap use red/white/orange/cyan for contrast.
 - Text from programs is plain text (`UiText.plain` stops Swing's HTML rendering).
 
-## Status
-Working (tested + screenshots looked at):
-- C# library: 32 xUnit tests pass. PNG fallback for every plot kind (looked at).
-- Plugin renderer: 9 JUnit tests pass (pixels, hover, zoom/pan, log, heatmap orientation, image square pixels,
-  2x sharpness, 1M points < 150 ms).
-- Live end to end in IntelliJ IDEA 2026.1.5.1 (dark): sample streams every plot type; window opens by itself without
-  taking focus; status line; last run stays. Screenshots `docs/screenshots/*-in-idea-2026.1.png`.
+## Status (21:05 UTC, 23 Nov)
+Every point of "What working means" is met and checked (tests + screenshots looked at, in `docs/screenshots/`):
+- Scatter/line/function, loss with log toggle, heatmap + contours, tensors as images (single, colour, batch grid).
+- Live updates from the sample (`dotnet run`, ~20 s animation) without freezing the IDE; library calls are
+  non-blocking (100k Loss calls < 2 s test; coalesced sends at <= 30/s).
+- Several named plots in a grid (scrolls when small) or tabs; last run stays after the program ends; next run clears.
+- Axes, labels, legends (emptiest corner), auto-scale, hover readout, wheel zoom, drag pan, double-click reset,
+  export PNG (2x, no on-screen hints) — all used in the IDE.
+- Light + dark themes; 200 % scale screenshot sharp.
+- Window: no button in an unrelated project; appears when plots arrive there; appears when a project file gains a
+  TorchSharpGraph reference (after the IDE syncs the file).
+- Keyboard focus stays in the editor while plots arrive (typed during a run).
+- Built zip installed into a clean IDEA profile (`tools/run-zip.sh`) works end to end.
+- JetBrains plugin checker: Compatible with Rider 2026.1.5.3 (RD-261), 2026.2.4.1 (RD-262), 2026.3 (RD-263), no warnings.
+- CI green: C# tests (32), sample PNG fallback (7 files), NuGet pack, Kotlin tests (23 incl. end-to-end with the real
+  C# sample), plugin zip + licence check. Signed Marketplace + verifier job on manual dispatch.
 
-Not done yet / next steps:
-1. Kotlin tests for server protocol (readLine, hello/welcome), LibraryUsage, IdeFiles; cross-language end-to-end test.
-2. Screenshots: light theme, 200 % scale, hover + zoom in IDE, tabs mode, unrelated project (no Graphs button).
-3. Test the built zip installed into a clean IDE (not runIdea).
-4. CI workflow (tests + zip + dotnet tests), signed build job (secrets from GitHub), plugin verifier vs Rider
-   2026.1/2026.2/2026.3.
-5. README, docs/development/PROTOCOL.md, docs/USER-GUIDE.md, change notes.
-6. Polish: smarter legend placement, x tick density on narrow plots.
+Not checked (needs real Rider, which needs a login): running from Rider's Run button (working directory under
+bin/Debug — routing is by folder prefix so it should match), Rider's own tool window stripe placement, Rider's
+file sync timing after `dotnet add package`.
+
+Ideas if time is left: rescan when a project is reloaded in Rider; "copy image" action; per-plot y-range lock;
+smoothing slider for noisy loss (TensorBoard-style).

@@ -33,5 +33,6 @@
 
   <applicationListeners>
     <listener class="dev.torchsharpgraph.project.GraphsProjectCloseListener" topic="com.intellij.openapi.project.ProjectCloseListener"/>
+    <listener class="dev.torchsharpgraph.project.ProjectFileListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
   </applicationListeners>
 </idea-plugin>
