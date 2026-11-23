@@ -1,0 +1,9 @@
+<idea-plugin>
+  <id>dev.torchsharpgraph</id>
+  <name>Graphs for TorchSharp</name>
+  <vendor url="https://github.com/JacobGoodchild/TorchSharpGraph">Jacob Goodchild</vendor>
+  <description><![CDATA[
+    <p>Live plots for C# machine learning, inside the IDE.</p>
+  ]]></description>
+  <depends>com.intellij.modules.platform</depends>
+</idea-plugin>
