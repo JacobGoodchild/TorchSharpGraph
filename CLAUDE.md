@@ -62,7 +62,7 @@ Live plots for C# machine learning inside Rider. Two parts:
 - **Viridis** colours for heatmaps (CC0); points/lines over a heatmap use red/white/orange/cyan for contrast.
 - Text from programs is plain text (`UiText.plain` stops Swing's HTML rendering).
 
-## Status (final for this session, 22:10 UTC, 23 Nov)
+## Status (final for this session, 22:00 UTC, 23 Nov)
 Every point of "What working means" is met and checked (tests + screenshots looked at, in `docs/screenshots/`):
 - Scatter/line/function, loss with log toggle, heatmap + contours, tensors as images (single, colour, batch grid).
 - Live updates from the sample (`dotnet run`, ~20 s animation) without freezing the IDE; library calls are
@@ -88,8 +88,8 @@ raw values faint behind; tested + IDE screenshot), Copy as Image (clipboard PNG 
 scatters drawn through a pixel buffer (1M points: 240 ms -> 25 ms per repaint), reconnect test (viewer restarts
 mid-run: full state resent, program calls stay fast), NuGet package icon, fewer y ticks on tall plots.
 
-Final plugin checker run on the last build (22:05): Compatible with Rider 2026.1, 2026.2 and 2026.3, no warnings.
-Session ended at 22:10 UTC (both plugins' checklists met and verified); wake-ups cancelled.
+Final plugin checker run on the last build (21:59): Compatible with Rider 2026.1, 2026.2 and 2026.3, no warnings.
+Session ended at 22:00 UTC (both plugins' checklists met and verified); wake-ups cancelled.
 
 Ideas if time is left: rescan when a project is reloaded in Rider; "copy image" action; per-plot y-range lock;
 smoothing slider for noisy loss (TensorBoard-style).
