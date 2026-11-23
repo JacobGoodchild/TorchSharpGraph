@@ -244,6 +244,9 @@ class TicksTest {
             for ((t, l) in ticks.zip(labels)) assertEquals(t, l.toDouble(), step * 1e-6, "label $l for $t")
         }
         assertEquals(listOf(-2.0, -1.0, 0.0), dev.torchsharpgraph.render.Ticks.log(dev.torchsharpgraph.render.Range(-2.0, 0.0), 5))
+        val oneDecade = dev.torchsharpgraph.render.Ticks.log(dev.torchsharpgraph.render.Range(-1.1, 0.05), 6).map { dev.torchsharpgraph.render.Ticks.logLabel(it) }
+        assertEquals(listOf("0.1", "0.2", "0.5", "1"), oneDecade)
+        assertEquals("5e-7", dev.torchsharpgraph.render.Ticks.logLabel(kotlin.math.log10(5e-7)))
         assertEquals("1e-6", dev.torchsharpgraph.render.Ticks.logLabel(-6.0))
         assertEquals("0.01", dev.torchsharpgraph.render.Ticks.logLabel(-2.0))
         assertEquals("1.235e7", dev.torchsharpgraph.render.Ticks.value(12345678.0))

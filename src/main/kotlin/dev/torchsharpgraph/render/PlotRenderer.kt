@@ -109,7 +109,7 @@ object PlotRenderer {
      */
     fun paint(
         g: Graphics2D, width: Int, height: Int, plot: PlotData, view: ViewState, theme: PlotTheme,
-        hover: Hover? = null, title: String? = null,
+        hover: Hover? = null, title: String? = null, hints: Boolean = true,
     ): Frame {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
         g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE)
@@ -227,7 +227,7 @@ object PlotRenderer {
             val text = "No data yet"
             g.drawString(text, (rect.centerX - normal.stringWidth(text) / 2).toFloat(), rect.centerY.toFloat())
         }
-        if (view.zoomed) {
+        if (view.zoomed && hints) {
             g.font = theme.smallFont; g.color = theme.muted
             val text = "Double-click to reset zoom"
             g.drawString(text, (rect.maxX - small.stringWidth(text) - 4).toFloat(), (rect.maxY - small.descent - 3).toFloat())

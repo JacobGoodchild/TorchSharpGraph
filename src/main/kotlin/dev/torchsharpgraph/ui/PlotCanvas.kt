@@ -148,7 +148,7 @@ class PlotCanvas(
         val g = img.createGraphics()
         g.scale(scale, scale)
         service.store.withPlot(plotName) { plot ->
-            if (plot != null) PlotRenderer.paint(g, w, h, plot, service.view(plotName), theme, null, plot.title ?: plot.name)
+            if (plot != null) PlotRenderer.paint(g, w, h, plot, service.view(plotName), theme, null, plot.title ?: plot.name, hints = false)
         }
         g.dispose()
         return img

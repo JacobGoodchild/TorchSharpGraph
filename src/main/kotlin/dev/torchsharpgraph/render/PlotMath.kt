@@ -87,25 +87,18 @@ object Ticks {
 
     /** Tick positions on a log axis, as log10 values: whole powers of ten, or 1-2-5 steps when the range is short. */
     fun log(range: Range, maxTicks: Int): List<Double> {
-        val lo = floor(range.min); val hi = ceil(range.max)
-        val decades = (hi - lo).toInt()
-        if (decades <= 1) {
-            val out = ArrayList<Double>()
-            for (d in lo.toInt()..hi.toInt()) for (m in listOf(1.0, 2.0, 5.0)) {
-                val t = d + log10(m)
-                if (t >= range.min - 1e-9 && t <= range.max + 1e-9) out.add(t)
+        val lo = floor(range.min).toInt(); val hi = ceil(range.max).toInt()
+        fun within(t: Double) = t >= range.min - 1e-9 && t <= range.max + 1e-9
+        val powers = (lo..hi).map { it.toDouble() }.filter(::within)
+        // Few decades on show: add 2 and 5 (and then every whole number) times each power of ten.
+        if (powers.size * 3 <= maxTicks) {
+            for (multipliers in listOf(listOf(1.0, 2.0, 5.0), (1..9).map { it.toDouble() })) {
+                val out = (lo..hi).flatMap { d -> multipliers.map { d + log10(it) } }.filter(::within)
+                if (out.size * 2 >= maxTicks || multipliers.size == 9) return if (out.size >= 2) out else linear(range, maxTicks).first
             }
-            if (out.size >= 2) return out
-            return linear(range, maxTicks).first
         }
-        val every = max(1, ceil(decades.toDouble() / max(1, maxTicks)).toInt())
-        val out = ArrayList<Double>()
-        var d = lo.toInt()
-        while (d <= hi.toInt()) {
-            if (d >= range.min - 1e-9 && d <= range.max + 1e-9) out.add(d.toDouble())
-            d += every
-        }
-        return out
+        val every = max(1, ceil(powers.size.toDouble() / max(1, maxTicks)).toInt())
+        return powers.filterIndexed { i, _ -> i % every == 0 }
     }
 
     /** A tick label that shows just enough digits for the step between ticks. */
@@ -119,8 +112,11 @@ object Ticks {
 
     fun logLabel(exponent: Double): String {
         val v = 10.0.pow(exponent)
-        val e = exponent.roundToInt()
-        if (abs(exponent - e) < 1e-9 && (e > 4 || e < -3)) return "1e$e"
+        val e = floor(exponent + 1e-9).toInt()
+        if (e > 4 || e < -3) {
+            val m = (v / 10.0.pow(e)).roundToInt()
+            return if (m == 1) "1e$e" else "${m}e$e"
+        }
         return value(v)
     }
 
