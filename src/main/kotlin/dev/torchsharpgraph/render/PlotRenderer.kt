@@ -63,6 +63,8 @@ class ViewState {
     var x: Range? = null
     var y: Range? = null
     var logY: Boolean? = null
+    /** Loss curves: 0 shows the raw values; 0.6 to 0.99 also draws a smoothed curve (as TensorBoard does). */
+    var smoothing: Double = 0.0
     val zoomed get() = x != null || y != null
     fun reset() { x = null; y = null }
 }
@@ -168,7 +170,18 @@ object PlotRenderer {
         g.clip(rect)
         if (heat != null) drawHeatmap(g, heat, xs, ys, theme)
         if (isImage) drawImage(g, plot.image!!, xs, ys)
-        plot.series.forEachIndexed { i, s -> drawSeries(g, s, xs, ys, seriesColor(plot, theme, i), rect) }
+        val smooth = view.smoothing.takeIf { plot.kind == PlotKind.LOSS && it > 0.0 }
+        plot.series.forEachIndexed { i, s ->
+            val color = seriesColor(plot, theme, i)
+            if (smooth != null && s.style == SeriesStyle.LINE) {
+                // The raw curve faint behind, the smoothed one on top.
+                val old = g.composite
+                g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f)
+                drawSeries(g, s, xs, ys, color, rect)
+                g.composite = old
+                drawSeries(g, smoothed(s, smooth), xs, ys, color, rect)
+            } else drawSeries(g, s, xs, ys, color, rect)
+        }
         g.clip = oldClip
 
         // Axes.
@@ -388,6 +401,30 @@ object PlotRenderer {
             }
         }
         g.drawImage(img, java.awt.geom.AffineTransform(1 / sx, 0.0, 0.0, 1 / sy, rect.x, rect.y), null)
+    }
+
+    private val smoothCache: MutableMap<Series, Triple<Int, Double, Series>> = Collections.synchronizedMap(WeakHashMap())
+
+    /**
+     * Exponential moving average with TensorBoard's start-up correction (so the curve doesn't start at zero):
+     * s_t = w * s_(t-1) + (1 - w) * y_t, shown as s_t / (1 - w^t).
+     */
+    fun smoothed(s: Series, weight: Double): Series {
+        smoothCache[s]?.let { (n, w, out) -> if (n == s.size && w == weight) return out }
+        val ys = DoubleArray(s.size)
+        var last = 0.0
+        var count = 0
+        for (i in 0 until s.size) {
+            val y = s.ys[i]
+            if (!y.isFinite()) { ys[i] = Double.NaN; continue }
+            last = weight * last + (1 - weight) * y
+            count++
+            ys[i] = last / (1 - Math.pow(weight, count.toDouble()))
+        }
+        val out = Series(s.name, s.style)
+        out.replace(s.xs.copyOf(s.size), ys)
+        smoothCache[s] = Triple(s.size, weight, out)
+        return out
     }
 
     /** The index range worth drawing: for sorted series only the visible part (plus one point each side). */

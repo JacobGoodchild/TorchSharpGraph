@@ -88,6 +88,10 @@ class PlotCanvas(
 
     private fun popupActions(): ActionGroup = DefaultActionGroup(
         LogScaleAction { this },
+        DefaultActionGroup("Smoothing", true).apply {
+            for ((label, w) in listOf("Off" to 0.0, "Light (0.6)" to 0.6, "Medium (0.9)" to 0.9, "Strong (0.99)" to 0.99))
+                add(SmoothingAction(label, w) { this@PlotCanvas })
+        },
         DumbAwareAction.create("Reset Zoom") { resetZoom() },
         DumbAwareAction.create("Export as PNG…") { exportPng() },
         DumbAwareAction.create("Copy as Image") { copyImage() },
@@ -177,6 +181,24 @@ class PlotCanvas(
             ImageIO.write(toImage(), "png", file)
         } catch (e: IOException) {
             Messages.showErrorDialog(project, "Couldn't save the picture: ${e.message ?: "unknown error"}", "Export as PNG")
+        }
+    }
+
+    val isLoss: Boolean get() = service.store.withPlot(plotName) { it?.kind == PlotKind.LOSS }
+
+    var smoothing: Double
+        get() = service.view(plotName).smoothing
+        set(value) { service.view(plotName).smoothing = value; repaint() }
+
+    /** One smoothing choice (loss plots only). */
+    class SmoothingAction(label: String, private val weight: Double, private val target: () -> PlotCanvas?) :
+        ToggleAction(label, "Smooth a noisy loss curve; the raw values stay faintly visible", null) {
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+        override fun isSelected(e: AnActionEvent) = target()?.smoothing == weight
+        override fun setSelected(e: AnActionEvent, state: Boolean) { if (state) target()?.smoothing = weight }
+        override fun update(e: AnActionEvent) {
+            super.update(e)
+            e.presentation.isEnabledAndVisible = target()?.isLoss ?: false
         }
     }
 

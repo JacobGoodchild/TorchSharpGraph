@@ -34,7 +34,8 @@ It appears in projects that reference TorchSharpGraph, and in any project as soo
 
 - **Hover** over a point, cell or pixel to read its value.
 - **Scroll** to zoom (hold Shift for x only, Alt for y only), **drag** to move, **double-click** to show everything.
-- **Right-click** a plot, or use the toolbar: log scale, reset zoom, export as PNG.
+- **Right-click** a plot, or use the toolbar: log scale, reset zoom, export as PNG, copy as image.
+- Loss plots: right-click → **Smoothing** draws a smoothed curve over the faint raw values (as TensorBoard does).
 - Toolbar: clear all plots, and **Show as Tabs** to see one plot at a time instead of all side by side.
 - The status line says which program is sending, or when it finished. The last run's plots stay until the next run.
 

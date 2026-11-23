@@ -109,6 +109,25 @@ class RenderTest {
     }
 
     @Test
+    fun smoothingFollowsTheTrend() {
+        val s = PlotStore()
+        val r = java.util.Random(2)
+        val n = 400
+        val xs2 = (0 until n).map { it.toDouble() }
+        val ys2 = (0 until n).map { exp(-it / 80.0) + 0.3 * r.nextGaussian().coerceIn(-1.5, 1.5) + 0.5 }
+        assertTrue(s.apply(Message.parse("""{"t":"plot","plot":"noisy","kind":"loss"}""")))
+        assertTrue(s.apply(Message.parse("""{"t":"series","plot":"noisy","series":"loss","style":"line","start":0,"x":${nums(xs2)},"y":${nums(ys2)}}""")))
+        val smooth = s.withPlot("noisy") { PlotRenderer.smoothed(it!!.series[0], 0.9) }
+        // The smoothed curve stays close to the true trend; the raw values wander far more.
+        val rawErr = (100 until n).sumOf { kotlin.math.abs(ys2[it] - (exp(-it / 80.0) + 0.5)) }
+        val smoothErr = (100 until n).sumOf { kotlin.math.abs(smooth.ys[it] - (exp(-it / 80.0) + 0.5)) }
+        assertTrue(smoothErr < rawErr / 2.5, "smoothed $smoothErr vs raw $rawErr")
+        assertEquals(ys2[0], smooth.ys[0], 1e-9) // the start-up correction: no dip towards zero
+        val view = ViewState().apply { smoothing = 0.9 }
+        save(render(s, "noisy", PlotTheme.dark(), view = view).first, "loss-smoothed-dark.png")
+    }
+
+    @Test
     fun heatmapWithContoursAndPath() {
         val (img, frame) = render(demo, "surface", PlotTheme.light(), w = 560, h = 420)
         save(img, "surface-light.png")
