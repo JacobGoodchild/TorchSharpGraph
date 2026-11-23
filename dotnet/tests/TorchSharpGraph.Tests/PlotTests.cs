@@ -438,3 +438,75 @@ public class ViewerTests
         Assert.Equal("{\"t\":\"end\"}", lines[1]);
     }
 }
+
+[Collection("Plot")]
+public class ReconnectTests
+{
+    /// <summary>A tiny viewer: says welcome, then collects lines until closed.</summary>
+    private sealed class FakeViewer : IDisposable
+    {
+        private readonly TcpListener _listener;
+        public List<string> Lines { get; } = [];
+        public int Port { get; }
+        private TcpClient? _client;
+
+        public FakeViewer(int port = 0)
+        {
+            _listener = new TcpListener(IPAddress.Loopback, port);
+            _listener.Start();
+            Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+            Task.Run(() =>
+            {
+                try
+                {
+                    _client = _listener.AcceptTcpClient();
+                    var stream = _client.GetStream();
+                    var reader = new StreamReader(stream, Encoding.UTF8);
+                    lock (Lines) Lines.Add(reader.ReadLine()!);
+                    stream.Write(Encoding.UTF8.GetBytes("{\"t\":\"welcome\",\"protocol\":1}\n"));
+                    string? line;
+                    while ((line = reader.ReadLine()) != null) lock (Lines) Lines.Add(line);
+                }
+                catch (Exception) { }
+            });
+        }
+
+        public void Dispose() { _client?.Dispose(); _listener.Stop(); }
+    }
+
+    private static bool WaitFor(Func<bool> condition, int ms = 8000)
+    {
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < ms) { if (condition()) return true; Thread.Sleep(20); }
+        return false;
+    }
+
+    [Fact]
+    public void ViewerRestartGetsEverythingAgainAndTheProgramNeverBlocks()
+    {
+        var first = new FakeViewer();
+        int port = first.Port;
+        var hub = new Hub(new PlotSettings { Port = port, MaxUpdatesPerSecond = 50 }, startThread: true);
+        Plot.TestHub = hub;
+        try
+        {
+            for (int i = 0; i < 100; i++) Plot.Loss(i, 1.0 / (i + 1));
+            Assert.True(WaitFor(() => { lock (first.Lines) return first.Lines.Any(l => l.Contains("\"series\"")); }), "first viewer got the loss");
+            first.Dispose(); // Rider closes
+            var sw = Stopwatch.StartNew();
+            for (int i = 100; i < 5000; i++) Plot.Loss(i, 1.0 / (i + 1));
+            Assert.True(sw.ElapsedMilliseconds < 1000, $"calls while the viewer is gone took {sw.ElapsedMilliseconds} ms");
+            using var second = new FakeViewer(port); // Rider is back on the same port
+            Assert.True(WaitFor(() =>
+            {
+                lock (second.Lines)
+                    return second.Lines.Any(l => l.Contains("\"series\"") && l.Contains("\"start\":0") && l.Contains("4999"));
+            }), "the new viewer got the whole curve: " + string.Join("\n", second.Lines.Take(3)));
+            lock (second.Lines) Assert.Contains("\"hello\"", second.Lines[0]);
+        }
+        finally
+        {
+            Plot.TestHub = null;
+        }
+    }
+}

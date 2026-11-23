@@ -312,8 +312,8 @@ object PlotRenderer {
         val (from, to) = visibleIndices(s, xs)
         g.color = color
         if (s.style == SeriesStyle.SCATTER) {
-            val many = to - from > 20_000
-            val r = if (many) 1.5 else 3.5
+            if (to - from > 20_000) { drawManyPoints(g, s, from, to, xs, ys, color, rect); return }
+            val r = 3.5
             val dot = Ellipse2D.Double()
             val old = g.composite
             g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.85f)
@@ -321,8 +321,7 @@ object PlotRenderer {
                 val px = xs.toPixel(s.xs[i]); val py = ys.toPixel(s.ys[i])
                 if (!px.isFinite() || !py.isFinite()) continue
                 if (px < rect.x - r || px > rect.maxX + r || py < rect.y - r || py > rect.maxY + r) continue
-                if (many) g.fill(Rectangle2D.Double(px - r, py - r, 2 * r, 2 * r))
-                else { dot.setFrame(px - r, py - r, 2 * r, 2 * r); g.fill(dot) }
+                dot.setFrame(px - r, py - r, 2 * r, 2 * r); g.fill(dot)
             }
             g.composite = old
             return
@@ -361,6 +360,34 @@ object PlotRenderer {
             }
         }
         g.draw(path)
+    }
+
+    /**
+     * Very many points: written straight into a pixel buffer at the screen's real resolution (so it stays sharp on
+     * scaled screens), then drawn in one go. Each point is a small square about 1.5 logical pixels across.
+     */
+    private fun drawManyPoints(g: Graphics2D, s: Series, from: Int, to: Int, xs: Scale, ys: Scale, color: Color, rect: Rectangle2D.Double) {
+        val sx = g.transform.scaleX.coerceAtLeast(1.0); val sy = g.transform.scaleY.coerceAtLeast(1.0)
+        val w = kotlin.math.ceil(rect.width * sx).toInt().coerceIn(1, 16000)
+        val h = kotlin.math.ceil(rect.height * sy).toInt().coerceIn(1, 16000)
+        val img = BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
+        val data = (img.raster.dataBuffer as java.awt.image.DataBufferInt).data
+        val argb = (0xd9 shl 24) or (color.rgb and 0xffffff)
+        val size = maxOf(1, (1.5 * sx).toInt())
+        for (i in from until to) {
+            val px = xs.toPixel(s.xs[i]); val py = ys.toPixel(s.ys[i])
+            if (!px.isFinite() || !py.isFinite()) continue
+            val ix = ((px - rect.x) * sx).toInt() - size / 2
+            val iy = ((py - rect.y) * sy).toInt() - size / 2
+            if (ix < -size || iy < -size || ix >= w || iy >= h) continue
+            for (dy in 0 until size) {
+                val y = iy + dy
+                if (y < 0 || y >= h) continue
+                val row = y * w
+                for (dx in 0 until size) { val x = ix + dx; if (x in 0 until w) data[row + x] = argb }
+            }
+        }
+        g.drawImage(img, java.awt.geom.AffineTransform(1 / sx, 0.0, 0.0, 1 / sy, rect.x, rect.y), null)
     }
 
     /** The index range worth drawing: for sorted series only the visible part (plus one point each side). */

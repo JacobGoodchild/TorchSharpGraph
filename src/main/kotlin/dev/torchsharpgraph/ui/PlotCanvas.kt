@@ -90,6 +90,7 @@ class PlotCanvas(
         LogScaleAction { this },
         DumbAwareAction.create("Reset Zoom") { resetZoom() },
         DumbAwareAction.create("Export as PNG…") { exportPng() },
+        DumbAwareAction.create("Copy as Image") { copyImage() },
     )
 
     val isLossOrXY: Boolean get() = service.store.withPlot(plotName) { it != null && it.kind != PlotKind.IMAGE }
@@ -152,6 +153,19 @@ class PlotCanvas(
         }
         g.dispose()
         return img
+    }
+
+    /** Puts the plot on the clipboard as a picture (to paste into notes or a chat). */
+    fun copyImage() {
+        val image = toImage()
+        com.intellij.openapi.ide.CopyPasteManager.getInstance().setContents(object : java.awt.datatransfer.Transferable {
+            override fun getTransferDataFlavors() = arrayOf(java.awt.datatransfer.DataFlavor.imageFlavor)
+            override fun isDataFlavorSupported(flavor: java.awt.datatransfer.DataFlavor) = flavor == java.awt.datatransfer.DataFlavor.imageFlavor
+            override fun getTransferData(flavor: java.awt.datatransfer.DataFlavor): Any {
+                if (flavor != java.awt.datatransfer.DataFlavor.imageFlavor) throw java.awt.datatransfer.UnsupportedFlavorException(flavor)
+                return image
+            }
+        })
     }
 
     fun exportPng() {

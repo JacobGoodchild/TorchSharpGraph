@@ -197,6 +197,25 @@ class RenderTest {
     }
 
     @Test
+    fun hugeScatterDrawsQuickly() {
+        val n = 1_000_000
+        val r = java.util.Random(1)
+        val sb = StringBuilder("""{"t":"series","plot":"cloud","series":"p","style":"scatter","start":0,"x":[""")
+        for (i in 0 until n) { if (i > 0) sb.append(','); sb.append(r.nextGaussian()) }
+        sb.append("],\"y\":[")
+        for (i in 0 until n) { if (i > 0) sb.append(','); sb.append(r.nextGaussian()) }
+        sb.append("]}")
+        val s = PlotStore()
+        assertTrue(s.apply(Message.parse(sb)))
+        save(render(s, "cloud", PlotTheme.light()).first, "cloud-light.png")
+        save(render(s, "cloud", PlotTheme.dark(), scale = 2.0).first, "cloud-dark-200.png")
+        val t = System.nanoTime()
+        repeat(3) { render(s, "cloud", PlotTheme.light()) }
+        val ms = (System.nanoTime() - t) / 1e6 / 3
+        assertTrue(ms < 600, "a million points drew in $ms ms")
+    }
+
+    @Test
     fun emptyPlotSaysSo() {
         val s = store("""{"t":"plot","plot":"empty","kind":"xy"}""")
         val (img, _) = render(s, "empty", PlotTheme.light())
