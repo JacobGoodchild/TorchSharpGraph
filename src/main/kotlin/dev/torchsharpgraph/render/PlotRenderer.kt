@@ -155,7 +155,7 @@ object PlotRenderer {
         val frame = Frame(rect, xs, ys, logY, isImage)
 
         // Grid and tick labels.
-        val (xTickValues, xStep) = Ticks.linear(xr, max(2, (rect.width / max(70.0, small.stringWidth("-0.000") + 24.0)).toInt()))
+        val (xTickValues, xStep) = Ticks.linear(xr, max(3, (rect.width / max(55.0, small.stringWidth("-0.00") + 18.0)).toInt()))
         val yTickList = yTicks(yr, logY, rect.height, small.height)
         g.stroke = BasicStroke(1f)
         if (!isImage) {
@@ -220,7 +220,7 @@ object PlotRenderer {
         }
 
         if (heat != null) drawColorBar(g, heat, rect, theme)
-        if (plot.series.size > 1 || (heat != null && plot.series.isNotEmpty())) drawLegend(g, plot, rect, theme)
+        if (plot.series.size > 1 || (heat != null && plot.series.isNotEmpty())) drawLegend(g, plot, rect, theme, xs, ys)
 
         if (plot.series.all { it.size == 0 } && plot.heatmap == null && plot.image == null) {
             g.font = theme.font; g.color = theme.muted
@@ -237,7 +237,7 @@ object PlotRenderer {
     }
 
     private fun yTicks(yr: Range, logY: Boolean, heightPx: Double, fontH: Int): List<Pair<Double, String>> {
-        val count = max(2, (heightPx / max(28.0, fontH * 2.2)).toInt())
+        val count = max(3, (heightPx / max(32.0, fontH * 2.2)).toInt())
         if (logY) return Ticks.log(yr, count).map { it to Ticks.logLabel(it) }
         val (values, step) = Ticks.linear(yr, count)
         return values.map { it to Ticks.label(it, step) }
@@ -399,13 +399,21 @@ object PlotRenderer {
         }
     }
 
-    private fun drawLegend(g: Graphics2D, plot: PlotData, rect: Rectangle2D.Double, theme: PlotTheme) {
+    private fun drawLegend(g: Graphics2D, plot: PlotData, rect: Rectangle2D.Double, theme: PlotTheme, xs: Scale, ys: Scale) {
         g.font = theme.smallFont
         val fm = g.fontMetrics
         val rowH = fm.height + 2.0
         val w = (plot.series.maxOfOrNull { fm.stringWidth(it.name) } ?: 0) + 34.0
         val h = rowH * plot.series.size + 8
-        val box = RoundRectangle2D.Double(rect.maxX - w - 8, rect.y + 8, w, h, 8.0, 8.0)
+        // Too small to hold a legend without hiding the data: leave it out.
+        if (h > rect.height * 0.6 || w > rect.width * 0.6) return
+        // The corner that hides the fewest points.
+        val corners = listOf(
+            rect.maxX - w - 8 to rect.y + 8, rect.x + 8 to rect.y + 8,
+            rect.maxX - w - 8 to rect.maxY - h - 8, rect.x + 8 to rect.maxY - h - 8,
+        )
+        val (bx, by) = corners.minByOrNull { (cx, cy) -> pointsInside(plot, xs, ys, Rectangle2D.Double(cx, cy, w, h)) } ?: corners[0]
+        val box = RoundRectangle2D.Double(bx, by, w, h, 8.0, 8.0)
         g.color = Color(theme.tooltipBackground.red, theme.tooltipBackground.green, theme.tooltipBackground.blue, 225)
         g.fill(box)
         g.color = theme.tooltipBorder
@@ -418,6 +426,19 @@ object PlotRenderer {
             g.color = theme.foreground
             g.drawString(s.name, (box.x + 26).toFloat(), (cy + fm.ascent / 2.0 - 1).toFloat())
         }
+    }
+
+    private fun pointsInside(plot: PlotData, xs: Scale, ys: Scale, r: Rectangle2D.Double): Int {
+        var n = 0
+        for (s in plot.series) {
+            val step = max(1, s.size / 2000)
+            var i = 0
+            while (i < s.size) {
+                if (r.contains(xs.toPixel(s.xs[i]), ys.toPixel(s.ys[i]))) n += step
+                i += step
+            }
+        }
+        return n
     }
 
     private fun drawHover(g: Graphics2D, h: Hover, theme: PlotTheme, width: Int, height: Int) {

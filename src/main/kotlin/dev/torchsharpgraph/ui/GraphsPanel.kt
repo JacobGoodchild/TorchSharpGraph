@@ -13,18 +13,19 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanelWithEmptyText
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTabbedPane
 import com.intellij.util.concurrency.EdtExecutorService
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import dev.torchsharpgraph.project.GraphsProjectService
 import java.awt.BorderLayout
-import java.awt.GridLayout
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.JPanel
+import javax.swing.ScrollPaneConstants
 import javax.swing.SwingConstants
 import kotlin.math.ceil
 import kotlin.math.sqrt
@@ -52,6 +53,7 @@ class GraphsPanel(private val project: Project) : SimpleToolWindowPanel(true, tr
     private var builtTabs = false
     var useTabs = false
         private set
+    private var builtColumns = 0
     private val pending = AtomicBoolean(false)
     private val removeListener: () -> Unit
 
@@ -65,6 +67,12 @@ class GraphsPanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         setToolbar(top)
         setContent(body)
         removeListener = store.addListener { scheduleRefresh() }
+        body.addComponentListener(object : java.awt.event.ComponentAdapter() {
+            override fun componentResized(e: java.awt.event.ComponentEvent) {
+                // A tall window stacks plots; a wide one puts them side by side.
+                if (!useTabs && canvases.size > 1 && gridColumns(canvases.size, body.width, body.height) != builtColumns) rebuild(store.plotNames())
+            }
+        })
         refresh()
     }
 
@@ -141,14 +149,16 @@ class GraphsPanel(private val project: Project) : SimpleToolWindowPanel(true, tr
             }
             else -> {
                 val n = canvases.size
-                // Wide tool windows get more columns.
-                val cols = if (n <= 1) 1 else if (body.width > 0 && body.height > 0 && body.width < body.height) 1.coerceAtLeast(ceil(sqrt(n / 2.0)).toInt())
-                           else ceil(sqrt(n.toDouble())).toInt()
+                val cols = gridColumns(n, body.width, body.height)
+                builtColumns = cols
                 val rows = ceil(n / cols.toDouble()).toInt()
-                val grid = JPanel(GridLayout(rows, cols, JBUI.scale(1), JBUI.scale(1)))
+                val grid = PlotGrid(rows, cols)
                 grid.background = JBUI.CurrentTheme.ToolWindow.borderColor()
                 for (c in canvases) grid.add(c)
-                body.add(grid, BorderLayout.CENTER)
+                val scroll = JBScrollPane(grid, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER)
+                scroll.border = JBUI.Borders.empty()
+                scroll.verticalScrollBar.unitIncrement = JBUI.scale(24)
+                body.add(scroll, BorderLayout.CENTER)
                 active = canvases.firstOrNull { it.plotName == selected }
             }
         }
@@ -156,19 +166,47 @@ class GraphsPanel(private val project: Project) : SimpleToolWindowPanel(true, tr
         body.repaint()
     }
 
-    private val timeFormat = SimpleDateFormat("HH:mm:ss")
-
     private fun updateStatus() {
         val run = store.run
         status.text = when {
             run == null -> "Waiting for a program to send plots"
             run.connected && run.endedAt == null -> "Receiving from ${UiText.plain(run.program)}"
-            else -> "${UiText.plain(run.program)} finished at ${timeFormat.format(Date(run.endedAt ?: System.currentTimeMillis()))}"
+            else -> "${UiText.plain(run.program)} finished at ${SimpleDateFormat("HH:mm:ss").format(Date(run.endedAt ?: System.currentTimeMillis()))}"
         }
         status.icon = if (run != null && run.connected && run.endedAt == null) AllIcons.Debugger.ThreadRunning else null
     }
 
+    /**
+     * Columns that keep plots closest to a 3:2 shape in a [w] x [h] area, never narrower than [PlotGrid.MIN_WIDTH]
+     * (plots that don't fit in height scroll).
+     */
+    private fun gridColumns(n: Int, w: Int, h: Int): Int {
+        if (n <= 1 || w <= 0 || h <= 0) return if (n <= 1) 1 else ceil(sqrt(n.toDouble())).toInt()
+        val maxCols = (w / JBUI.scale(PlotGrid.MIN_WIDTH)).coerceIn(1, n)
+        return (1..maxCols).minByOrNull { cols ->
+            val rows = ceil(n / cols.toDouble())
+            val cellH = maxOf(h / rows, JBUI.scale(PlotGrid.MIN_HEIGHT).toDouble())
+            val aspect = (w / cols.toDouble()) / cellH
+            kotlin.math.abs(kotlin.math.ln(aspect / 1.5))
+        } ?: 1
+    }
+
     override fun dispose() {
         removeListener()
+    }
+}
+
+/** Plots in a grid that fills the window, and scrolls once each plot would get smaller than a readable size. */
+private class PlotGrid(private val rows: Int, cols: Int) : JPanel(java.awt.GridLayout(rows, cols, JBUI.scale(1), JBUI.scale(1))), javax.swing.Scrollable {
+    override fun getPreferredScrollableViewportSize(): java.awt.Dimension = preferredSize
+    override fun getPreferredSize(): java.awt.Dimension = java.awt.Dimension(JBUI.scale(MIN_WIDTH), rows * JBUI.scale(MIN_HEIGHT))
+    override fun getScrollableUnitIncrement(r: java.awt.Rectangle, o: Int, d: Int) = JBUI.scale(24)
+    override fun getScrollableBlockIncrement(r: java.awt.Rectangle, o: Int, d: Int) = r.height
+    override fun getScrollableTracksViewportWidth() = true
+    override fun getScrollableTracksViewportHeight(): Boolean = (parent?.height ?: 0) >= rows * JBUI.scale(MIN_HEIGHT)
+
+    companion object {
+        const val MIN_WIDTH = 260
+        const val MIN_HEIGHT = 200
     }
 }
