@@ -81,7 +81,7 @@ internal static class PngWriter
             }
             else
             {
-                var sl = plt.Add.ScatterLine(xs.ToArray(), ys.ToArray(), color);
+                var sl = plt.Add.ScatterLine(xs.ToArray(), ys.ToArray(), p.Heatmap != null ? ScottPlot.Colors.Red : color);
                 sl.LineWidth = 2;
                 if (p.Series.Count > 1) sl.LegendText = s.Name;
             }

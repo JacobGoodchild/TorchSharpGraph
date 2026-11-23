@@ -3,7 +3,35 @@
   <name>Graphs for TorchSharp</name>
   <vendor url="https://github.com/JacobGoodchild/TorchSharpGraph">Jacob Goodchild</vendor>
   <description><![CDATA[
-    <p>Live plots for C# machine learning, inside the IDE.</p>
+    <p><b>Live plots for C# machine learning, inside Rider.</b></p>
+    <p>Your C# program calls the small TorchSharpGraph library (<code>Plot.Scatter</code>, <code>Plot.Line</code>,
+    <code>Plot.Function</code>, <code>Plot.Loss</code>, <code>Plot.Heatmap</code>, <code>Plot.Image</code>) and the
+    Graphs window draws the plots while it runs: data points, a curve moving into place, the loss going down.
+    Tensors, arrays and lists are all accepted.</p>
+    <ul>
+      <li>Scatter, line and function plots, loss curves with a log-scale switch, heatmaps with contour lines, and
+      tensors shown as pictures (one picture or a grid of them).</li>
+      <li>Hover to read values, scroll to zoom, drag to move, double-click to reset, export as PNG.</li>
+      <li>The last run stays visible after the program ends; the next run starts afresh.</li>
+      <li>The window only appears in projects that use the library, or when plots actually arrive.</li>
+    </ul>
+    <p>Programs connect over the local loopback address (127.0.0.1) only. The plugin makes no other network
+    connections and sends nothing anywhere. Without Rider, the library saves the plots as PNG files instead.</p>
+    <p>Graphs for TorchSharp is an independent project, not made or endorsed by JetBrains, Microsoft or the .NET
+    Foundation. Rider is a trademark of JetBrains. TorchSharp is a .NET Foundation project; its name is used here
+    only to say what this plugin works with. MIT licence.</p>
   ]]></description>
   <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="Graphs" anchor="right" secondary="false" icon="/icons/graphs.svg" doNotActivateOnStart="true"
+                factoryClass="dev.torchsharpgraph.ui.GraphsToolWindowFactory"/>
+    <postStartupActivity implementation="dev.torchsharpgraph.project.GraphsStartup"/>
+    <applicationConfigurable parentId="tools" instance="dev.torchsharpgraph.settings.GraphsConfigurable"
+                             id="dev.torchsharpgraph.settings" displayName="Graphs for TorchSharp"/>
+  </extensions>
+
+  <applicationListeners>
+    <listener class="dev.torchsharpgraph.project.GraphsProjectCloseListener" topic="com.intellij.openapi.project.ProjectCloseListener"/>
+  </applicationListeners>
 </idea-plugin>
